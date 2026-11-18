@@ -67,7 +67,11 @@ async def run_research(
     if reader_profile is None:
         if not profile.reader_profile:
             raise ValueError(f"profile {profile.name!r} declares no reader_profile")
-        reader_profile = get_profile(profile.reader_profile)
+        reader_profile = (
+            profile
+            if profile.reader_profile == profile.name
+            else get_profile(profile.reader_profile)
+        )
     # A dead local backend (a dropped tunnel) fails here in seconds, not after the retry budget.
     # An injected client owns its transport, so the profile's URL isn't what it would reach.
     if client is None:

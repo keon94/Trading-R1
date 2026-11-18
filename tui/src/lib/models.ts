@@ -9,6 +9,8 @@ import type { ModelInfo } from "./api"
  *  reason when it is not usable. A ready row is just the model name. */
 export function statusLine(m: ModelInfo): string {
   if (m.ready) return m.model
+  if (m.reason === "needs_chatgpt") return "Connect a ChatGPT account"
+  if (m.reason === "needs_chatgpt_model") return "Choose a model for your ChatGPT account"
   if (!m.configured) return `${m.model} (needs ${m.api_key_env})`
   if (m.reason === "key_refused") return `${m.model} (key refused)`
   if (m.reason === "offline:reader") return `${m.model} (reader offline)`

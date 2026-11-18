@@ -39,9 +39,12 @@ async def _readiness(
     paired reader answer and serve their model. An unconfigured cloud backbone is not probed.
     Returns a structured ``reason`` (``ok`` / ``needs_key:<ENV>`` / ``key_refused`` /
     ``offline:backbone`` / ``offline:reader``) so the picker can give the right guidance."""
+    backbone = all_profiles[row["name"]]
+    if not row["configured"] and backbone.provider == "chatgpt-responses":
+        reason = "needs_chatgpt_model" if backbone.oauth_account else "needs_chatgpt"
+        return {"ready": False, "reason": reason}
     if not row["configured"]:
         return {"ready": False, "reason": f"needs_key:{row['api_key_env']}"}
-    backbone = all_profiles[row["name"]]
     reader = all_profiles.get(backbone.reader_profile) if backbone.reader_profile else None
     if reader is None:  # a misconfigured pairing is reported without a probe
         return {"ready": False, "reason": "offline:reader"}

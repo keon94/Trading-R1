@@ -31,7 +31,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from trading_r1.providers.builtins import builtin_profiles, supplied_provider
-from trading_r1.state import credentials
+from trading_r1.state import chatgpt, credentials
 from trading_r1.state.paths import state_dir
 from trading_r1.state.settings import persisted_backbone
 
@@ -88,7 +88,10 @@ class ModelProfile(BaseModel):
     # OpenAI-compatible Chat Completions (vLLM/Qwen, Gemini-compat); "openai-responses"
     # = the OpenAI Responses API (native reasoning summaries + stateless threading);
     # "gemini" = the native google-genai SDK. Selects the provider via provider_for().
-    provider: Literal["chat", "openai-responses", "gemini", "anthropic"] = "chat"
+    provider: Literal["chat", "openai-responses", "gemini", "anthropic", "chatgpt-responses"] = (
+        "chat"
+    )
+    oauth_account: str | None = Field(default=None, exclude=True, repr=False)
     # Role in the harness: a "backbone" drives the ReAct loop (and is switchable via
     # /model); a "reader" is the page-reading model and is never a loop backbone.
     role: Literal["backbone", "reader"] = "backbone"
@@ -210,12 +213,31 @@ def load_profiles(
             profiles[name] = ModelProfile(**spec)
         except ValueError as err:  # pydantic's validation error
             raise ProfileSelectionError(f"profile {name!r} is invalid: {err}") from err
+    if chatgpt.PROFILE not in profiles:
+        profiles[chatgpt.PROFILE] = _chatgpt_profile()
     return profiles
+
+
+def _chatgpt_profile() -> ModelProfile:
+    try:
+        account = chatgpt.active_account()
+    except chatgpt.ChatGPTError:
+        account = None  # the account screen reports the store error; other providers still work
+    return ModelProfile(
+        name=chatgpt.PROFILE,
+        model=(account.model or "") if account else "",
+        base_url=chatgpt.RESOURCE,
+        provider="chatgpt-responses",
+        oauth_account=account.client_id if account and account.sharing else None,
+        reader_profile=chatgpt.PROFILE,
+        display=DisplayMeta(provider_label="OpenAI (ChatGPT plan)", order=11),
+    )
 
 
 NO_MODEL = (
     "No model provider set up. Get a Tauric key at https://tauric.ai/signup, or set "
-    "OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY or TR1_VLLM_BASE_URL."
+    "OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY or TR1_VLLM_BASE_URL. "
+    "In the terminal you can also choose Continue with ChatGPT."
 )
 
 
@@ -255,6 +277,9 @@ def default_backbone_choice(
     usable = {r["name"] for r in rows if r["configured"]}
     if (provider := supplied_provider(e, usable)) is not None:
         return provider.name, "supplied"
+    for row in rows:
+        if row.get("auth") == "chatgpt" and row["configured"]:
+            return row["name"], "supplied"
     return None, None
 
 
@@ -305,6 +330,8 @@ def available_backbones(
         d = p.display or DisplayMeta()
         keyless = p.api_key_literal is not None or p.api_key_env is None
         configured = keyless or bool(p.resolve_api_key(e))
+        if p.provider == "chatgpt-responses":
+            configured = bool(p.oauth_account and p.model)
         rows.append(
             {
                 "name": p.name,
@@ -313,6 +340,7 @@ def available_backbones(
                 "provider_label": d.provider_label or p.name,
                 "order": d.order,
                 "configured": configured,
+                **({"auth": "chatgpt"} if p.provider == "chatgpt-responses" else {}),
                 # the exact env var to set when a *cloud* backbone lacks its key; None for a
                 # keyless local backbone (nothing to configure; it just needs to be running).
                 "api_key_env": None if keyless else p.api_key_env,

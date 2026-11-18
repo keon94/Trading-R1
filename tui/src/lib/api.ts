@@ -67,6 +67,7 @@ export interface ModelInfo {
   configured: boolean // credentials present (cloud key set, or keyless local)
   ready: boolean // usable right now: backbone AND paired reader answer
   reason: string // "ok" | "needs_key:<ENV>" | "key_refused" | "offline:backbone" | "offline:reader"
+  auth?: "chatgpt"
   api_key_env: string | null // the env var to set for a cloud backbone; null for keyless local
 }
 
@@ -79,6 +80,15 @@ interface CompactResult {
 
 type FetchImpl = typeof fetch
 type ReqOpts = { baseUrl?: string; fetchImpl?: FetchImpl }
+
+class BackendHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+  }
+}
 
 /** The bearer token the backend wants (set by the launcher), as request headers. */
 function authHeaders(): Record<string, string> {
@@ -174,7 +184,7 @@ async function request(
     if (opts.signal?.aborted) throw e
     throw new Error("the backend did not answer")
   }
-  if (!resp.ok) throw new Error(await failure(resp))
+  if (!resp.ok) throw new BackendHttpError(await failure(resp), resp.status)
   return resp
 }
 
@@ -625,3 +635,52 @@ export const installService = (opts?: ReqOpts) =>
 
 export const removeService = (opts?: ReqOpts) =>
   write<{ removed: boolean }>("DELETE", "/service", undefined, opts)
+
+export interface ChatGPTAccount {
+  id: string
+  email: string | null
+  connected: boolean
+  sharing: boolean
+  model: string | null
+}
+
+type ChatGPTLogin =
+  | { status: "pending" }
+  | { status: "complete"; account: string; sharing: boolean }
+  | { status: "error"; message: string }
+
+export async function getChatGPTAccounts(opts: ReqOpts = {}) {
+  try {
+    return await getJson<{ accounts: ChatGPTAccount[]; active: string | null }>("/chatgpt", opts)
+  } catch (e) {
+    if (e instanceof BackendHttpError && e.status === 404) {
+      throw new Error(
+        "The running backend does not support ChatGPT sign-in. Quit the older Trading-R1 window " +
+          "or restart its background service, then relaunch this checkout.",
+      )
+    }
+    throw e
+  }
+}
+
+export async function startChatGPTLogin(account?: string): Promise<{ id: string; url: string }> {
+  return (await (await request("POST", "/chatgpt/login", { account })).json()) as { id: string; url: string }
+}
+
+export const chatGPTLoginStatus = (id: string) =>
+  getJson<ChatGPTLogin>(`/chatgpt/login/${encodeURIComponent(id)}`, {})
+
+export const cancelChatGPTLogin = (id: string) =>
+  request("DELETE", `/chatgpt/login/${encodeURIComponent(id)}`)
+
+export const listChatGPTModels = (id: string) =>
+  getJson<{ slug: string; name: string }[]>(`/chatgpt/accounts/${encodeURIComponent(id)}/models`, {})
+
+export const selectChatGPTModel = (id: string, model: string) =>
+  request("PUT", `/chatgpt/accounts/${encodeURIComponent(id)}/model`, { model })
+
+export async function signOutChatGPT(id: string): Promise<{ revoked: boolean }> {
+  return (await (await request("DELETE", `/chatgpt/accounts/${encodeURIComponent(id)}/session`)).json()) as {
+    revoked: boolean
+  }
+}

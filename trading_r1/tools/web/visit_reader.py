@@ -3,10 +3,8 @@
 
 """Reader-model extraction helpers for the `visit` tool.
 
-The reader's output shape is enforced by the provider (``response_schema``): every backbone's
-reader speaks the OpenAI-compatible Chat Completions API, which honours ``response_format``.
-The prompt conveys only what the fields mean; the model cannot wrap the JSON in prose or omit a
-field.
+The provider constrains the output with ``response_schema``. The prompt describes what
+the fields mean, and the reader validates the returned object before using it.
 """
 
 from __future__ import annotations

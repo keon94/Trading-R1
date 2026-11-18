@@ -65,6 +65,7 @@ To uninstall, run `trading-r1 daemon uninstall` if you installed the service, th
 |---|---|---|
 | `tauric` | `tauric` | `TAURIC_API_KEY` |
 | `gpt` | `gpt-6.1-sol` | `OPENAI_API_KEY` |
+| `chatgpt` | Choose from your ChatGPT account | An eligible ChatGPT plan with plan usage enabled |
 | `anthropic` | `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` |
 | `gemini` | `gemini-3.8-flash` | `GEMINI_API_KEY` |
 | `vllm` | `Qwen3.8-27B` | a vLLM server you run |
@@ -72,6 +73,18 @@ To uninstall, run `trading-r1 daemon uninstall` if you installed the service, th
 The app starts on the first you have set up, in the order OpenAI, Anthropic, Gemini, Tauric, vLLM.
 Change it with *Model…* in the palette, or start on one with `trading-r1 --profile gpt`. To point
 `vllm` at your server, see [Configuration](MANUAL.md#configuration).
+
+### Use your ChatGPT plan
+
+In the local terminal app, press `/` and choose **ChatGPT account…** → **Continue with ChatGPT**.
+Complete browser sign-in and approve plan usage. Choose an available model, then select
+**OpenAI (ChatGPT plan)** in **Model…**. You can also launch with `trading-r1 --profile chatgpt`.
+Use **ChatGPT account…** to change accounts or models and to disconnect. Market data still requires
+a Tauric API key. [ChatGPT plan usage](https://developers.openai.com/siwc/token-sharing-open-source)
+
+The terminal shares a backend with any running Trading-R1 window or background service.
+If that backend predates ChatGPT sign-in, quit the window that started it or restart the
+background service from the updated installation before opening the ChatGPT account menu.
 
 ## Use it
 

@@ -31,6 +31,7 @@ from trading_r1.service.auth import AuthMiddleware
 from trading_r1.service.inbound import Inbound
 from trading_r1.service.routes import (
     channels,
+    chatgpt,
     credentials,
     jobs,
     models,
@@ -50,7 +51,7 @@ def _lifespan(run_scheduler: bool) -> Callable[[FastAPI], AbstractAsyncContextMa
     app does when ``run_scheduler`` is set: only in the process that owns the backend."""
 
     @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         inbound: Inbound | None = None
         syncing: asyncio.Task[None] | None = None
         # the stores are opened now: a file that cannot be used fails or is replaced at start
@@ -72,6 +73,11 @@ def _lifespan(run_scheduler: bool) -> Callable[[FastAPI], AbstractAsyncContextMa
         try:
             yield
         finally:
+            login = app.state.chatgpt_login
+            if login is not None and login.task is not None:
+                login.close_listener()
+                login.task.cancel()
+                await asyncio.gather(login.task, return_exceptions=True)
             if syncing is not None:
                 syncing.cancel()
                 await asyncio.gather(syncing, return_exceptions=True)
@@ -111,6 +117,8 @@ async def _invalid_request(_request: Request, exc: RequestValidationError) -> JS
 
 def create_app(*, run_scheduler: bool = False) -> FastAPI:
     app = FastAPI(title="Trading-R1", version=state.API_VERSION, lifespan=_lifespan(run_scheduler))
+    app.state.chatgpt_login = None
+    app.state.chatgpt_login_lock = asyncio.Lock()
     app.add_middleware(AuthMiddleware)
     app.add_api_route("/livez", livez, methods=["GET"])
     app.add_api_route("/version", version, methods=["GET"])
@@ -122,6 +130,7 @@ def create_app(*, run_scheduler: bool = False) -> FastAPI:
         sessions,
         channels,
         credentials,
+        chatgpt,
         service,
         jobs,
         settings,

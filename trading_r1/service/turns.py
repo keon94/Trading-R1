@@ -38,7 +38,12 @@ async def session_turn(
         config = preferences.run_config()
         # a dead local backend fails here in seconds, not after compaction's retries
         if run_kw.get("client") is None and profile.reader_profile:
-            await ensure_local_ready(profile, get_profile(profile.reader_profile))
+            reader = (
+                profile
+                if profile.reader_profile == profile.name
+                else get_profile(profile.reader_profile)
+            )
+            await ensure_local_ready(profile, reader)
         try:
             async with asyncio.timeout(runtime_config().limits.per_call_timeout_s):
                 await compact_before_turn(

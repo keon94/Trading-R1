@@ -13,7 +13,8 @@ lint:  ## ruff and Biome
 	uv run ruff format --check .
 	cd tui && bunx @biomejs/biome@2.6.4 format .
 
-smoke:  ## the command runs, the backend answers, the terminal UI typechecks
+smoke:  ## run regression tests, check backend startup, and typecheck the terminal UI
+	uv run python -m unittest discover -s tests
 	uv run trading-r1 --version
 	for c in serve export sessions channels jobs secrets daemon sync; do \
 	  uv run trading-r1 $$c --help > /dev/null || exit 1; done

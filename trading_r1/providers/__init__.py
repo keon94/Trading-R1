@@ -38,6 +38,7 @@ from trading_r1.providers.profiles import (
 # SDK is imported only by the profile that needs it.
 PROTOCOLS: dict[str, str] = {
     "chat": "trading_r1.providers.chat:ChatCompletionsProvider",
+    "chatgpt-responses": "trading_r1.providers.chatgpt:ChatGPTProvider",
     "openai-responses": "trading_r1.providers.openai:OpenAIProvider",
     "gemini": "trading_r1.providers.gemini:GeminiProvider",
     "anthropic": "trading_r1.providers.anthropic:AnthropicProvider",

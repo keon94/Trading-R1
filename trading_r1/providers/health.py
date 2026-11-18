@@ -17,6 +17,7 @@ import httpx
 
 from trading_r1.providers import provider_for
 from trading_r1.providers.profiles import ModelProfile
+from trading_r1.state import chatgpt
 from trading_r1.state.runtime_config import runtime_config
 
 
@@ -61,6 +62,15 @@ async def endpoint_status(
     of what's loaded (it catches the real local failure: server up, model not pulled or served
     under another name). A cloud ``/models`` is a broad catalog, not our allowlist, so it isn't
     gated on: a wrong model surfaces at call time instead of falsely reading offline."""
+    if profile.provider == "chatgpt-responses":
+        if not profile.oauth_account or not profile.model:
+            return "key_refused", []
+        try:
+            models = await asyncio.to_thread(chatgpt.list_models, profile.oauth_account)
+        except chatgpt.ChatGPTError:
+            return "unreachable", []
+        ids = [model["slug"] for model in models]
+        return ("ok" if profile.model in ids else "model_missing"), ids
     url, headers = provider_for(profile).models_request()
     try:
         r = await client.get(url, headers=headers)
@@ -92,6 +102,9 @@ async def pair_status(
 
     if reader is None:
         return await status(backbone), "unreachable"
+    if reader == backbone:
+        result = await status(backbone)
+        return result, result
     first, second = await asyncio.gather(status(backbone), status(reader))
     return first, second
 

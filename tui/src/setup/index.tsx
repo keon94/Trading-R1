@@ -7,6 +7,7 @@
  * it was made. Secrets are typed into the form dialog (never shown) and sent write-only.
  */
 import { createChannels } from "./channels"
+import { createChatGPT } from "./chatgpt"
 import { type SetupHost, createFlow } from "./flow"
 import { createJobs } from "./jobs"
 import { createKeys } from "./keys"
@@ -22,6 +23,7 @@ export function createSetup(host: SetupHost) {
   return {
     channels,
     ...createKeys(flow),
+    ...createChatGPT(flow),
     ...createReportExport(flow),
     ...createSend(flow, addThen),
     ...createJobs(flow, channels),

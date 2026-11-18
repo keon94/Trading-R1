@@ -358,6 +358,7 @@ function AppInner() {
         }}
         onSelectDisabled={(name) => {
           const m = data.models.find((x) => x.name === name)
+          if (m?.auth === "chatgpt") return void setup.chatgpt(() => void chooseModel(title))
           if (m?.api_key_env && (!m.configured || m.reason === "key_refused")) return askKey(m, title)
           if (m)
             info(
@@ -516,6 +517,7 @@ function AppInner() {
         browseTools: browseCapabilities,
         help: openHelp,
         apiKeys: () => void setup.apiKeys(),
+        connectChatGPT: () => void setup.chatgpt(() => void chooseModel()),
         backgroundService: () => void setup.service(),
         settings: () => openSettings(),
         quit,

@@ -42,6 +42,7 @@ export interface CommandActions {
   browseTools: () => void
   help: () => void
   apiKeys: () => void
+  connectChatGPT: () => void
   backgroundService: () => void
   settings: () => void
   quit: () => void
@@ -111,6 +112,7 @@ export function buildCommandGroups(actions: CommandActions, ctx: CommandContext)
       id: "app",
       label: "App",
       commands: [
+        { id: "chatgpt", title: "ChatGPT account…", run: actions.connectChatGPT, unavailable: busy },
         { id: "keys", title: "API keys…", run: actions.apiKeys },
         { id: "service", title: "Background service…", run: actions.backgroundService },
         { id: "settings", title: "Settings…", run: actions.settings },

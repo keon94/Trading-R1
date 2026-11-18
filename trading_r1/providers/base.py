@@ -17,6 +17,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, ClassVar
 
 from trading_r1.providers.profiles import ModelProfile
@@ -64,10 +65,17 @@ def function_schemas(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]
     return out
 
 
+def _account_fingerprint(profile: ModelProfile) -> str | None:
+    return sha256(profile.oauth_account.encode()).hexdigest() if profile.oauth_account else None
+
+
 def tag_native(profile: ModelProfile, items: list[dict[str, Any]]) -> dict[str, Any]:
     """Provider-native turn items, marked with the protocol and model that wrote them: another
     protocol or model cannot read them, and a provider replays only its own."""
-    return {"protocol": profile.provider, "model": profile.model, "items": items}
+    tag = {"protocol": profile.provider, "model": profile.model, "items": items}
+    if account := _account_fingerprint(profile):
+        tag["account"] = account
+    return tag
 
 
 def native_items(profile: ModelProfile, message: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -78,6 +86,7 @@ def native_items(profile: ModelProfile, message: dict[str, Any]) -> list[dict[st
         isinstance(native, dict)
         and native.get("protocol") == profile.provider
         and native.get("model") == profile.model
+        and native.get("account") == _account_fingerprint(profile)
     ):
         return native.get("items") or None
     return None
